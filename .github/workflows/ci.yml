@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  engine-linux:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test --package-path GlinskiKit --filter GlinskiEngineTests
+
+  package-macos:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/coverage.sh
+
+  app:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      # The project's non-ASCII name is stored decomposed; read the exact name instead of typing it.
+      # The app target (targets[0]) and its shared scheme have the same name; schemes[0] would be a package scheme.
+      - run: echo "SCHEME=$(xcodebuild -list -json -project Gli*.xcodeproj | jq -r '.project.targets[0]')" >> "$GITHUB_ENV"
+      # Ad-hoc signing so the macOS UI-test runner can launch the app without a team certificate.
+      - run: xcodebuild test -project Gli*.xcodeproj -scheme "$SCHEME" -destination 'platform=macOS' CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
+      - run: xcodebuild test -project Gli*.xcodeproj -scheme "$SCHEME" -destination 'platform=iOS Simulator,OS=latest,name=iPhone 17'
