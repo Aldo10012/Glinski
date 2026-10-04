@@ -105,18 +105,29 @@ piece → reselect; tap elsewhere → deselect. Promotion: reducer sets `pending
 `.promotionChosen` completes; `.undo` while pending cancels it.
 
 ## 6. UI (`BoardUI` + app)
-- One game screen, no home menu, no `NavigationStack` in v1.
-- Adaptive by **available size**, not platform: board + side panel (move list, status) when wide; board over a
-  horizontal move strip when narrow.
-- Toolbar: New Game (confirm if in progress), Undo, Offer Draw, Resign, Settings. Mac menu commands with
-  shortcuts (⌘N, ⌘Z) send the same intents.
-- Settings sheet: auto-rotate toggle, piece-set attribution/licences.
-- Game over: overlay on the board with the result ("Stalemate — White ¾, Black ¼") + New Game.
-- Turn indicator; check highlight on the king's cell.
+Restyled 2026-10-04 from the Claude Design mocks (macOS / iPadOS / iOS, light + dark).
+- One game screen, no home menu. Warm cream (light) / near-black (dark) page; wood board with thin gaps between
+  cells, a soft shadow, rank/file labels on the edge cells, gold selected and last-move cells, dot (empty) or ring
+  (capture) for legal targets, red glow for check.
+- Adaptive by **available size**, not platform:
+  - **Wide** (Mac, iPad landscape): board + 320pt side panel — opponent card, serif-italic status with detail line
+    ("Move 4 · Queen on e10 selected"), move table, |< < > >| history nav, own card. System toolbar: Mac
+    `+ ↶ ⇅ | ½ Offer draw ⚑ Resign | settings` with the subtitle "Two players on this Mac"; iPad `+` leading,
+    title + "Two players · pass and play" centred, `↶ ⇅ ½ ⚑ ⚙︎` trailing.
+  - **Narrow** (iPhone): no nav bar; header with round New Game / Settings buttons around the status, player cards
+    above and below the board, a horizontal strip of move chips, and a bottom bar of Undo / Flip / Offer Draw / Resign.
+- **Player cards**: avatar, name, captured pieces; the side to move gets a gold border. **No clocks** (v2+).
+- **Move table**: one row per ply — number, from cell, to cell, image of the piece moved (plus the promoted piece).
+  Tapping a row or chip reviews that position.
+- **Review**: `Intent.review(ply)` shows an earlier position read-only; any other intent returns to the live
+  position first, and a board tap while reviewing only returns to live. Overlays are hidden while reviewing.
+- **Flip**: a manual toggle on top of the auto-rotate setting (default off). Mac menu shortcuts ⌘N, ⌘Z.
+- Game over: overlay card on the board with the result ("Stalemate — White ¾, Black ¼") + New Game.
 - Board = **91 individual cell views** positioned by pure hex-layout math (not a `Canvas`, which ViewInspector
-  can't inspect). Each cell: accessibility identifier `cell.f6`, label "f6, white knight".
-- Pieces: bundled **SVG set with a permissive licence** (CC0/MIT/CC BY), licence verified before adding.
-- Board colours: three-colour classic wood palette as named colours with light/dark variants. No theme setting.
+  can't inspect). Each cell: accessibility identifier `cell.f6`, label "f6, white knight"; move rows `move.<n>`.
+- Pieces: Cburnett SVG set (BSD), attribution in Settings.
+- Colours: `Palette` tokens with light/dark variants (functions of `ColorScheme`; no asset catalog, so `swift test`
+  sees them). No theme setting.
 - Strings: English only, all via a String Catalog.
 
 ## 7. Persistence

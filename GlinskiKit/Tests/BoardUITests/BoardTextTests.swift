@@ -23,10 +23,28 @@ struct BoardTextTests {
         #expect(BoardText.result(.draw(.fiftyMove)) == "Draw by the 50-move rule")
     }
 
-    @Test func moveRowsPairWhiteAndBlack() {
-        #expect(BoardText.moveRows([]) == [])
-        #expect(BoardText.moveRows(["e4-e6"]) == ["1. e4-e6"])
-        #expect(BoardText.moveRows(["e4-e6", "f7-f6", "Nd1-f4"]) == ["1. e4-e6  f7-f6", "2. Nd1-f4"])
+    @Test func detailShowsMoveNumberSelectionAndReview() {
+        #expect(BoardText.detail(GameFeature.State()) == "Move 1")
+        #expect(BoardText.detail(GameFeature.State().after(.cellTapped(c("e10")))) == "Move 1")   // not White's piece
+        let played = GameFeature.State().after(.cellTapped(c("e4")), .cellTapped(c("e6")), .cellTapped(c("f7")), .cellTapped(c("f6")))
+        #expect(BoardText.detail(played) == "Move 2")
+        #expect(BoardText.detail(played.after(.cellTapped(c("e1")))) == "Move 2 · Queen on e1 selected")
+        #expect(BoardText.detail(played.after(.review(1))) == "Reviewing move 1 of 2")
+    }
+
+    @Test func counterShowsDisplayedPlyOfAll() {
+        let played = GameFeature.State().after(.cellTapped(c("e4")), .cellTapped(c("e6")), .cellTapped(c("f7")), .cellTapped(c("f6")))
+        #expect(BoardText.counter(played) == "2 of 2")
+        #expect(BoardText.counter(played.after(.review(0))) == "0 of 2")
+    }
+
+    @Test func plyAndPlayerLabels() {
+        let record = GameFeature.State().after(.cellTapped(c("e4")), .cellTapped(c("e6"))).history[0]
+        #expect(BoardText.plyLabel(record) == "1, white pawn, e4 to e6")
+        let promotion = state("Pf10 Ka1 kl6").after(.cellTapped(c("f10")), .cellTapped(c("f11")), .promotionChosen(.queen)).history[0]
+        #expect(BoardText.plyLabel(promotion) == "1, white pawn, f10 to f11, promotes to queen")
+        #expect(BoardText.playerLabel(.white, captured: []) == "White")
+        #expect(BoardText.playerLabel(.black, captured: [.pawn, .knight]) == "Black, captured pawn, knight")
     }
 
     @Test func cellLabels() {

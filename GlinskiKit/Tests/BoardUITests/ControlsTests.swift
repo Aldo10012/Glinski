@@ -10,6 +10,7 @@ struct ControlsTests {
     final class Box {
         var confirming: ConfirmAction?
         var showingSettings = false
+        var flipped = false
     }
 
     private func controls(_ state: GameFeature.State, _ sent: Sent, _ box: Box) -> ControlsView {
@@ -17,7 +18,8 @@ struct ControlsTests {
             state: state,
             send: sent.send,
             confirming: Binding(get: { box.confirming }, set: { box.confirming = $0 }),
-            showingSettings: Binding(get: { box.showingSettings }, set: { box.showingSettings = $0 })
+            showingSettings: Binding(get: { box.showingSettings }, set: { box.showingSettings = $0 }),
+            flipped: Binding(get: { box.flipped }, set: { box.flipped = $0 })
         )
     }
 
@@ -87,5 +89,14 @@ struct ControlsTests {
         let box = Box()
         try controls(.init(), Sent(), box).inspect().find(button: "Settings").tap()
         #expect(box.showingSettings)
+    }
+
+    @Test func flipTogglesTheBoard() throws {
+        let box = Box()
+        let view = controls(.init(), Sent(), box)
+        try view.inspect().find(button: "Flip").tap()
+        #expect(box.flipped)
+        try view.inspect().find(button: "Flip").tap()
+        #expect(!box.flipped)
     }
 }

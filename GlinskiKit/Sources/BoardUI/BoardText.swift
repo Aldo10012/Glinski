@@ -30,11 +30,34 @@ enum BoardText {
         }
     }
 
-    /// "1. e4-e6  f7-f6" — one row per full move.
-    static func moveRows(_ moves: [String]) -> [String] {
-        stride(from: 0, to: moves.count, by: 2).map { i in
-            "\(i / 2 + 1). " + moves[i..<min(i + 2, moves.count)].joined(separator: "  ")
+    /// The line under the status: the move number, plus what is selected or being reviewed.
+    static func detail(_ state: GameFeature.State) -> String {
+        if let ply = state.reviewPly {
+            return String(localized: "Reviewing move \(ply) of \(state.game.moves.count)", bundle: .module)
         }
+        let move = String(localized: "Move \(state.game.moves.count / 2 + 1)", bundle: .module)
+        guard let cell = state.selection, let piece = state.game.position.board[cell] else { return move }
+        let name = name(piece.kind).capitalized
+        return move + " · " + String(localized: "\(name) on \(cell.notation) selected", bundle: .module)
+    }
+
+    /// "3 of 7": the displayed ply out of all plies, above the move table.
+    static func counter(_ state: GameFeature.State) -> String {
+        String(localized: "\(state.displayedPly) of \(state.game.moves.count)", bundle: .module)
+    }
+
+    /// Spoken form of one move-table row: "1, white pawn, e4 to e6".
+    static func plyLabel(_ record: GameFeature.PlyRecord) -> String {
+        let side = record.piece.side == .white ? String(localized: "white", bundle: .module) : String(localized: "black", bundle: .module)
+        let base = "\(record.number), \(side) \(name(record.piece.kind)), " + String(localized: "\(record.from.notation) to \(record.to.notation)", bundle: .module)
+        guard let promotion = record.promotion else { return base }
+        return base + ", " + String(localized: "promotes to \(name(promotion))", bundle: .module)
+    }
+
+    /// "Black, captured pawn, knight".
+    static func playerLabel(_ side: Side, captured: [PieceKind]) -> String {
+        guard !captured.isEmpty else { return name(side) }
+        return name(side) + ", " + String(localized: "captured \(captured.map(name).joined(separator: ", "))", bundle: .module)
     }
 
     static func cellLabel(_ cell: Cell, piece: Piece?) -> String {

@@ -15,7 +15,7 @@ final class SmokeTests: XCTestCase {
         let app = launch()
         app.descendants(matching: .any)["cell.e4"].tap()
         app.descendants(matching: .any)["cell.e6"].tap()
-        XCTAssertTrue(app.staticTexts["1. e4-e6"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["move.1"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Black to move"].exists)
         let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         shot.name = "after-e4-e6"
