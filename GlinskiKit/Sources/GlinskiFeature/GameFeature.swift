@@ -11,6 +11,8 @@ public enum GameFeature {
         public internal(set) var pendingPromotion: PendingPromotion?
         /// The side that offered a draw; the other player must respond before play continues.
         public internal(set) var drawOfferedBy: Side?
+        /// The ply being reviewed (0 = the start); `nil` shows the live position.
+        public internal(set) var reviewPly: Int?
 
         public init(game: GameState = GameState()) {
             self.game = game
@@ -20,10 +22,44 @@ public enum GameFeature {
         public var moveList: [String] { game.notation }
         public var lastMove: Move? { game.moves.last }
 
-        /// The king of the side to move, when it is in check.
+        /// The king of the side to move in the displayed position, when it is in check.
         public var checkedKing: Cell? {
-            guard game.position.isInCheck else { return nil }
-            return Cell.all.first { game.position.board[$0] == Piece(.king, sideToMove) }
+            let position = displayedPosition
+            guard position.isInCheck else { return nil }
+            return Cell.all.first { position.board[$0] == Piece(.king, position.sideToMove) }
+        }
+
+        /// Every position of the game, from the start through the live one.
+        // ponytail: replays the game on every access; cache it if long games lag.
+        public var positions: [Position] {
+            game.moves.reduce(into: [game.start]) { $0.append($0.last!.applying($1)!) }
+        }
+
+        public var displayedPly: Int { reviewPly ?? game.moves.count }
+        public var displayedPosition: Position { reviewPly.map { positions[$0] } ?? game.position }
+        public var displayedLastMove: Move? { displayedPly > 0 ? game.moves[displayedPly - 1] : nil }
+
+        /// One record per ply, for the move table.
+        public var history: [PlyRecord] {
+            zip(positions, game.moves).enumerated().map { i, pair in
+                PlyRecord(number: i + 1, piece: pair.0.board[pair.1.from]!, from: pair.1.from, to: pair.1.to, promotion: pair.1.promotion)
+            }
+        }
+
+        /// Opponent pieces `side` has taken up to the displayed ply, in capture order.
+        public func captured(by side: Side) -> [PieceKind] {
+            let shown = positions.prefix(displayedPly + 1)
+            // Only the mover captures, so a promotion (the mover's pawn vanishing) is never counted.
+            return zip(shown, shown.dropFirst()).filter { $0.0.sideToMove == side }.flatMap { before, after in
+                PieceKind.allCases.flatMap { kind in
+                    let lost = Self.count(Piece(kind, side.opponent), before.board) - Self.count(Piece(kind, side.opponent), after.board)
+                    return Array(repeating: kind, count: max(lost, 0))
+                }
+            }
+        }
+
+        private static func count(_ piece: Piece, _ board: Board) -> Int {
+            Cell.all.count { board[$0] == piece }
         }
 
         /// Resignation and agreed draws are deliberate, so they can't be undone.
@@ -34,6 +70,14 @@ public enum GameFeature {
             default: return !game.moves.isEmpty
             }
         }
+    }
+
+    public struct PlyRecord: Equatable, Sendable {
+        public let number: Int
+        public let piece: Piece
+        public let from: Cell
+        public let to: Cell
+        public let promotion: PieceKind?
     }
 
     public struct PendingPromotion: Equatable, Sendable {
@@ -49,9 +93,17 @@ public enum GameFeature {
         case resign
         case offerDraw
         case respondToDraw(accept: Bool)
+        /// Show the position after `ply` moves; `nil` returns to the live position.
+        case review(Int?)
     }
 
     public static func reduce(_ state: inout State, _ intent: Intent) {
+        // Anything but reviewing returns to the live position; a board tap does only that,
+        // so a move is never played on a position the player isn't looking at.
+        if case .review = intent {} else if state.reviewPly != nil {
+            state.reviewPly = nil
+            if case .cellTapped = intent { return }
+        }
         switch intent {
         case .cellTapped(let cell): tap(cell, &state)
         case .promotionChosen(let kind): promote(to: kind, &state)
@@ -60,6 +112,7 @@ public enum GameFeature {
         case .resign: try? state.game.resign(state.sideToMove)
         case .offerDraw: offerDraw(&state)
         case .respondToDraw(let accept): respondToDraw(accept: accept, &state)
+        case .review(let ply): review(ply, &state)
         }
         // A finished game keeps no pickers, prompts or highlights, whichever intent ended it.
         if state.game.result != nil {
@@ -111,6 +164,13 @@ public enum GameFeature {
         state.selection = nil
         state.targets = []
         state.drawOfferedBy = nil
+    }
+
+    private static func review(_ ply: Int?, _ state: inout State) {
+        let clamped = ply.map { min(max($0, 0), state.game.moves.count) }
+        state.reviewPly = clamped == state.game.moves.count ? nil : clamped
+        state.selection = nil
+        state.targets = []
     }
 
     private static func offerDraw(_ state: inout State) {

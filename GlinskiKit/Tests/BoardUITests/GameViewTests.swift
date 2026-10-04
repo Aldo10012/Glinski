@@ -18,6 +18,8 @@ struct GameViewTests {
         #expect(GameView.isFlipped(black, autoRotate: true))
         #expect(!GameView.isFlipped(black, autoRotate: false))
         #expect(!GameView.isFlipped(.init(), autoRotate: true))
+        #expect(GameView.isFlipped(.init(), autoRotate: false, manual: true))
+        #expect(!GameView.isFlipped(black, autoRotate: true, manual: true))
     }
 
     @Test func overlayPicksTheOneThatMatters() {
@@ -26,20 +28,33 @@ struct GameViewTests {
         let pending = state("Pf10 Ka1 kl6").after(.cellTapped(c("f10")), .cellTapped(c("f11")))
         #expect(GameView.overlay(pending) == .promotion(.white))
         #expect(GameView.overlay(GameFeature.State().after(.resign)) == .gameOver("White resigns — Black wins"))
+        let reviewingAFinishedGame = GameFeature.State().after(.cellTapped(c("e4")), .cellTapped(c("e6")), .resign, .review(0))
+        #expect(GameView.overlay(reviewingAFinishedGame) == nil)
     }
 
     @Test(arguments: [CGSize(width: 1000, height: 700), CGSize(width: 390, height: 844)])
     func contentShowsBoardStatusAndMoves(size: CGSize) throws {
         let store = GameStore()
-        let view = GameContent(store: store, size: size, autoRotate: false)
+        let view = GameContent(store: store, size: size, autoRotate: .constant(false))
         #expect(try view.inspect().findAll(CellView.self).count == 91)
         #expect(try view.inspect().find(text: "White to move").string() == "White to move")
         #expect(try view.inspect().find(text: "No moves yet").string() == "No moves yet")
+        #expect(try view.inspect().findAll(PlayerCard.self).count == 2)
+    }
+
+    @Test func narrowLayoutHasTheActionBarAndWideHasTheTable() throws {
+        let narrow = GameContent(store: GameStore(), size: CGSize(width: 390, height: 844), autoRotate: .constant(false))
+        _ = try narrow.inspect().find(MoveChipsView.self)
+        _ = try narrow.inspect().find(button: "Resign")
+        _ = try narrow.inspect().find(button: "Flip")
+        let wide = GameContent(store: GameStore(), size: CGSize(width: 1000, height: 700), autoRotate: .constant(false))
+        _ = try wide.inspect().find(MoveTableView.self)
+        _ = try wide.inspect().find(HistoryNavView.self)
     }
 
     @Test func tappingTheBoardDrivesTheStore() throws {
         let store = GameStore()
-        let view = GameContent(store: store, size: CGSize(width: 390, height: 844), autoRotate: false)
+        let view = GameContent(store: store, size: CGSize(width: 390, height: 844), autoRotate: .constant(false))
         try view.inspect().find(viewWithAccessibilityIdentifier: "cell.e4").callOnTapGesture()
         #expect(store.state.selection == c("e4"))
     }
@@ -50,7 +65,7 @@ struct GameViewTests {
         GameFeature.State().after(.resign),
     ])
     func overlaysAreRendered(s: GameFeature.State) throws {
-        let view = GameContent(store: GameStore(state: s), size: CGSize(width: 390, height: 844), autoRotate: false)
+        let view = GameContent(store: GameStore(state: s), size: CGSize(width: 390, height: 844), autoRotate: .constant(false))
         switch GameView.overlay(s) {
         case .drawOffer: _ = try view.inspect().find(DrawOfferView.self)
         case .promotion: _ = try view.inspect().find(PromotionPicker.self)

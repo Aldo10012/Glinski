@@ -59,6 +59,26 @@ struct BoardViewTests {
         #expect(try cellView("e6", in: board(moved)).accessibilityValue().string() == "last move")
     }
 
+    @Test func captureTargetsAreHighlighted() throws {
+        let s = state("Ra1 ra6 Kc1 kl6").after(.cellTapped(c("a1")))
+        #expect(try cellView("a6", in: board(s)).accessibilityValue().string() == "legal move")
+    }
+
+    @Test func reviewShowsTheEarlierPositionAndItsLastMove() throws {
+        let s = GameFeature.State().after(.cellTapped(c("e4")), .cellTapped(c("e6")), .cellTapped(c("f7")), .cellTapped(c("f6")), .review(1))
+        let view = board(s)
+        #expect(try cellView("f7", in: view).accessibilityLabel().string() == "f7, black pawn")
+        #expect(try cellView("e6", in: view).accessibilityValue().string() == "last move")
+        #expect(try cellView("f6", in: view).accessibilityValue().string() == "")
+    }
+
+    @Test func coordinatesSitOnTheBoardEdge() {
+        #expect(["a1", "a6", "b7", "c8", "d9", "e10", "f11"].allSatisfy { CellView.showsRank(c($0)) })
+        #expect(!CellView.showsRank(c("b1")) && !CellView.showsRank(c("g10")) && !CellView.showsRank(c("f6")))
+        #expect(Cell.all.filter(CellView.showsFile).count == 11)
+        #expect(!CellView.showsFile(c("a6")))
+    }
+
     @Test func piecesUseTheirAssetImages() throws {
         let view = board()
         #expect(try cellView("g1", in: view).find(ViewType.Image.self).actualImage().name() == "wK")
@@ -68,9 +88,10 @@ struct BoardViewTests {
 
     @Test func highlightSetForACell() {
         let s = GameFeature.State().after(.cellTapped(c("e4")))
-        #expect(CellHighlight.all(for: c("e4"), in: s) == [.selected])
-        #expect(CellHighlight.all(for: c("e5"), in: s) == [.target])
-        #expect(CellHighlight.all(for: c("a1"), in: s) == [])
+        let map = CellHighlight.all(in: s)
+        #expect(map[c("e4")] == [.selected])
+        #expect(map[c("e5")] == [.target])
+        #expect(map[c("a1")] == nil)
     }
 
     @Test func paletteHasThreeDistinctShadesPerScheme() {
